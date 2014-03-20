@@ -2,13 +2,19 @@
 /* jshint strict: false */
 requirejs.config({
     paths: {
-        'jquery': '../lib/jquery/jquery',
-        'gpromise': '../src/gpromise'
+        'jquery': 'jquery/jquery',
+        'gpromise': 'gpromise'
     }
 });
 
 define(['gpromise', 'jquery'], function (GPromise, $) {
     console.log('Loading');
 	var gpromise = new GPromise();
-	gpromise.init();
+	gpromise.then((function(value){
+        console.log('promise solved with', value, this);
+    }).bind(gpromise), function(err){
+        console.error(err);
+    });
+
+    gpromise.resolve(23);
 });
