@@ -13,6 +13,7 @@ module.exports = function (grunt) {
         name: 'gpromise',
         src: 'src',
         dist: 'dist',
+        lib: 'lib',
         example:'examples'
     };
 
@@ -48,6 +49,7 @@ module.exports = function (grunt) {
                         return [
                             lrSnippet,
                             mountFolder(connect, '.tmp'),
+                            mountFolder(connect, config.lib),
                             mountFolder(connect, config.src),
                             mountFolder(connect, config.example)
                         ];
