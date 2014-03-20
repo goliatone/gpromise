@@ -1,5 +1,7 @@
 /*
  * gpromise
+ * http://promises-aplus.github.io/promises-spec/
+ *
  * https://github.com/goliatone/gpromise
  * Created with gbase.
  * Copyright (c) 2014 goliatone
@@ -10,12 +12,12 @@
 (function (root, name, deps, factory) {
     "use strict";
     // Node
-     if(typeof deps === 'function') { 
+     if(typeof deps === 'function') {
         factory = deps;
         deps = [];
     }
-        
-    if (typeof exports === 'object') {        
+
+    if (typeof exports === 'object') {
         module.exports = factory.apply(root, deps.map(require));
     } else if (typeof define === 'function' && 'amd' in define) {
         //require js, here we assume the file is named as the lower
@@ -50,7 +52,7 @@
                     if (d.get) {
                         target.__defineGetter__(k, d.get);
                         if (d.set) target.__defineSetter__(k, d.set);
-                    } else if (target !== d.value) target[k] = d.value;                
+                    } else if (target !== d.value) target[k] = d.value;
                 });
             }
         }
@@ -85,19 +87,19 @@
 ///////////////////////////////////////////////////
 // CONSTRUCTOR
 ///////////////////////////////////////////////////
-	
+
 	var options = {
-        
+
     };
-    
+
     /**
      * GPromise constructor
-     * 
+     *
      * @param  {object} config Configuration object.
      */
     var GPromise = function(config){
-        _extend(options, config || {});     
-        this.init();  
+        _extend(options, config || {});
+        this.init();
     };
 
 ///////////////////////////////////////////////////
@@ -105,8 +107,96 @@
 ///////////////////////////////////////////////////
 
     GPromise.prototype.init = function(){
-        console.log('GPromise: Init!');
-        return 'This is just a stub!';
+        if(this.initialized) return this;
+        this.initialized = true;
+
+        this.value = 'empty';
+        this.value = null;
+
+        this.states= ['resolve', 'reject'];
+
+        this.callbacks = [];
+
+        this.thenables = [];
     };
+
+
+    GPromise.prototype.then = function(onFullfilled, onRejected){
+        this.callbacks.push({resolve:onFullfilled, reject:onRejected});
+
+        var thenPromise = new GPromise();
+
+        this.thenables.push(thenPromise);
+
+        if(this.value !== 'empty'){
+            //exectue next frame.
+            setTimeout(this._processQueue.bind(this), 0);
+        }
+
+        return thenPromise;
+    };
+
+    GPromise.prototype.resolve = function(value){
+        return this.handle('resolve', value);
+    };
+
+    GPromise.prototype.reject = function(value){
+        return this.handle('reject', value);
+    };
+
+    //TODO: Consider make this private? _handle.call(this, state, value)
+    GPromise.prototype.handle = function(state, value){
+        if(this.state !== 'empty') return this;
+        this.state = state;
+        this.value = value;
+
+        this._processQueue();
+
+        return this;
+    };
+
+    GPromise.prototype.chain = function(promise){
+        return this.then(promise.resolve.bind(promise),
+                         promise.reject.bind(promise));
+    };
+
+    GPromise.prototype.catch = function(onRejected){
+        return this.then(null, onRejected);
+    };
+
+    GPromise.prototype._processQueue = function(){
+        var onFullfilled, onRejected, callback;
+        while(this.thenables.length){
+            callback = this.callbacks.shift();
+            this._executeCallback(callback[this.state]);
+        }
+    };
+
+    GPromise.prototype._executeCallback = function(callback){
+        var then = this.thenables.shift();
+
+        if(typeof callback !== 'function'){
+            if(this.state.match(/resolve|reject/)) then[this.state](this.value);
+            return;
+        }
+
+        try {
+            var returned = callback(this.value);
+            if(returned && typeof returned.then === 'function'){
+                var rejectThenPromise   = function(value){then.reject(value)},
+                    resolveThenPromise = function(value){then.resolve(value)};
+
+                returned.then(resolveThenPromise, rejectThenPromise);
+            } else then.resolve(returned);
+
+        } catch(e){
+            then.reject(e);
+        }
+    };
+
+
+
+
+
     return GPromise;
 }));
