@@ -53,6 +53,7 @@
      */
     var GPromise = function(){
         this.state = 'pending';
+
         this.value = null;
 
         this.callbacks = [];
@@ -79,8 +80,10 @@
         if(this.state !== 'pending'){
             //exectue next frame.
             setTimeout(this._processQueue.bind(this), 0);
+            // return thenPromise;
         }
 
+        // return this;
         return thenPromise;
     };
 
@@ -148,8 +151,10 @@
      */
     GPromise.prototype._processQueue = function(){
         var callback;
+
         while(this.thenables.length){
             callback = this.callbacks.shift();
+
             this._executeCallback(callback[this.state]);
         }
     };
@@ -180,10 +185,6 @@
             then.reject(e);
         }
     };
-
-
-
-
 
     return GPromise;
 }));
