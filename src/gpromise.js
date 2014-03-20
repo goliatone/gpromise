@@ -1,5 +1,6 @@
 /*
  * gpromise
+ * Simple "Promises/A+" implementation.
  * http://promises-aplus.github.io/promises-spec/
  *
  * https://github.com/goliatone/gpromise
@@ -35,92 +36,39 @@
         };
     }
 }(this, "GPromise", function() {
-
-    /**
-     * Extend method.
-     * @param  {Object} target Source object
-     * @return {Object}        Resulting object from
-     *                         meging target to params.
-     */
-    var _extend = function(target) {
-        var i = 1, length = arguments.length, source;
-        for ( ; i < length; i++ ) {
-            // Only deal with defined values
-            if ((source = arguments[i]) != undefined ){
-                Object.getOwnPropertyNames(source).forEach(function(k){
-                    var d = Object.getOwnPropertyDescriptor(source, k) || {value:source[k]};
-                    if (d.get) {
-                        target.__defineGetter__(k, d.get);
-                        if (d.set) target.__defineSetter__(k, d.set);
-                    } else if (target !== d.value) target[k] = d.value;
-                });
-            }
-        }
-        return target;
-    };
-
-    /**
-     * Proxy method
-     * @param  {Function} fn      Function to be proxied
-     * @param  {Object}   context Context for the method.
-     */
-    var _proxy = function( fn, context ) {
-        var tmp, args, proxy, slice = Array.prototype.slice;
-
-        if ( typeof context === "string" ) {
-            tmp = fn[ context ];
-            context = fn;
-            fn = tmp;
-        }
-
-        if ( ! typeof(fn) === 'function') return undefined;
-
-        args = slice.call(arguments, 2);
-        proxy = function() {
-            return fn.apply( context || this, args.concat( slice.call( arguments ) ) );
-        };
-
-        return proxy;
-    };
-
-
 ///////////////////////////////////////////////////
 // CONSTRUCTOR
 ///////////////////////////////////////////////////
 
-	var options = {
-
-    };
-
     /**
-     * GPromise constructor
+     * GPromise constructor.
+     * A promise is a value to be resolved in the future.
+     * Promises can be in one of three states:
+     * - pending
+     * - resolved
+     * - rejected
+     * Once a promise is resolved, either by fullfilling it
+     * or by rejecting it, a value must be set.
      *
-     * @param  {object} config Configuration object.
      */
-    var GPromise = function(config){
-        _extend(options, config || {});
-        this.init();
-    };
-
-///////////////////////////////////////////////////
-// PRIVATE METHODS
-///////////////////////////////////////////////////
-
-    GPromise.prototype.init = function(){
-        if(this.initialized) return this;
-        this.initialized = true;
-
-        this.value = 'empty';
+    var GPromise = function(){
+        this.state = 'pending';
         this.value = null;
-
-        this.states= ['resolve', 'reject'];
 
         this.callbacks = [];
 
         this.thenables = [];
     };
 
-
+    /**
+     * A promise must provide a then method to access
+     * its current or eventual value or reason.
+     * @param  {Function} onFullfilled Called once the
+     *                                 promise is resolved.
+     * @param  {Function} onRejected   Called once the
+     *                                 promise is rejected
+     * @return {GPromise}
+     */
     GPromise.prototype.then = function(onFullfilled, onRejected){
         this.callbacks.push({resolve:onFullfilled, reject:onRejected});
 
@@ -128,7 +76,7 @@
 
         this.thenables.push(thenPromise);
 
-        if(this.value !== 'empty'){
+        if(this.state !== 'pending'){
             //exectue next frame.
             setTimeout(this._processQueue.bind(this), 0);
         }
@@ -136,17 +84,36 @@
         return thenPromise;
     };
 
+    /**
+     * Fullfill the promise with the given value.
+     * @param  {Object} value
+     * @return {this}
+     */
     GPromise.prototype.resolve = function(value){
         return this.handle('resolve', value);
     };
 
+    /**
+     * Reject the promise with the give reason.
+     * @param  {Object} value
+     * @return {GPromise}
+     */
     GPromise.prototype.reject = function(value){
         return this.handle('reject', value);
     };
 
-    //TODO: Consider make this private? _handle.call(this, state, value)
+    /**
+     * Handles promise fulfillment.
+     *  TODO: Consider make this private?
+     *  `_handle.call(this, state, value)`
+     *
+     * @param  {String} state Either reject or solve
+     * @param  {Object} value
+     * @return {GPromise}
+     * @private
+     */
     GPromise.prototype.handle = function(state, value){
-        if(this.state !== 'empty') return this;
+        if(this.state !== 'pending') return this;
         this.state = state;
         this.value = value;
 
@@ -155,23 +122,43 @@
         return this;
     };
 
+    /**
+     * Passes the resolution of this promise
+     * to another promise.
+     * @param  {GPromise} promise
+     * @return {GPromise}
+     */
     GPromise.prototype.chain = function(promise){
         return this.then(promise.resolve.bind(promise),
                          promise.reject.bind(promise));
     };
 
+    /**
+     * Catches on rejection
+     * @param  {Function} onRejected Callback for reject state
+     * @return {GPromise}
+     */
     GPromise.prototype.catch = function(onRejected){
         return this.then(null, onRejected);
     };
 
+    /**
+     * Process queued callbacks.
+     * @private
+     */
     GPromise.prototype._processQueue = function(){
-        var onFullfilled, onRejected, callback;
+        var callback;
         while(this.thenables.length){
             callback = this.callbacks.shift();
             this._executeCallback(callback[this.state]);
         }
     };
 
+    /**
+     * Executes all single promises.
+     * @param   {Function} callback
+     * @private
+     */
     GPromise.prototype._executeCallback = function(callback){
         var then = this.thenables.shift();
 
@@ -183,7 +170,7 @@
         try {
             var returned = callback(this.value);
             if(returned && typeof returned.then === 'function'){
-                var rejectThenPromise   = function(value){then.reject(value)},
+                var rejectThenPromise  = function(value){then.reject(value)},
                     resolveThenPromise = function(value){then.resolve(value)};
 
                 returned.then(resolveThenPromise, rejectThenPromise);
