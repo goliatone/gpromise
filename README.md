@@ -34,6 +34,9 @@ And push it:
 
 `git push --tags`
 
+Or the one liner:
+`git tag -a v0.1.0 -m "Initial release." && git push --tags`
+
 
 ## Travis
 In order to enable Travis for this specific project, you need to do so on your Travi's [profile](https://travis-ci.org/profile). Look for the entry `goliatone/gpromise`, activate, and sync.
