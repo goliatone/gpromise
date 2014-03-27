@@ -17,4 +17,18 @@ define(['gpromise', 'jquery'], function (GPromise, $) {
     });
 
     gpromise.resolve(23);
+
+    var promise = new GPromise();
+
+    promise.reject('this always rejects').then(function(data) {
+      console.log(data); // this is never called
+    }).catch(function(err) {
+      console.log(data);//this is called
+    });
+
+    promise = new GPromise();
+
+    promise.resolve('this always resolves').then(function(data) {
+      console.log(data); //this is called
+    });
 });
